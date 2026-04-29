@@ -1,0 +1,9 @@
+# Ignore everything
+*
+
+# Except the Calling Application docs folder
+!Calling Application/
+!Calling Application/**
+
+# And git config itself
+!.gitignore
