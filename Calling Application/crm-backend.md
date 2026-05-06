@@ -125,12 +125,12 @@ If type = `offset` and processed → reverses invoice payment automatically.
 
 All financial documents get sequential IDs:
 
-| Document | Format | Example |
-|----------|--------|---------|
-| Invoices | INV-YYYY-#### | INV-2026-0042 |
-| Quotes | QT-YYYY-#### | QT-2026-0007 |
-| Credit Notes | CN-YYYY-#### | CN-2026-0003 |
-| Purchase Orders | PO-YYYY-#### | PO-2026-0015 |
+| Document        | Format        | Example       |
+| --------------- | ------------- | ------------- |
+| Invoices        | INV-YYYY-#### | INV-2026-0042 |
+| Quotes          | QT-YYYY-####  | QT-2026-0007  |
+| Credit Notes    | CN-YYYY-####  | CN-2026-0003  |
+| Purchase Orders | PO-YYYY-####  | PO-2026-0015  |
 
 ---
 
