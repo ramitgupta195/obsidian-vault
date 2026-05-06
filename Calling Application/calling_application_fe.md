@@ -76,6 +76,16 @@ graph TD
 **Keyword detection for course suggestions:**
 Agile, Scrum, ITIL, DevOps, Six Sigma, PMP, PRINCE2, CISSP, etc.
 
+**Call controls during an active call (Mute / Hold / AI):**
+- **Mute** — toggle mic
+- **Hold** — put customer on hold
+- **AI** (sparkles icon) — transfer call to Lisa; button turns purple showing "Listening" while agent monitors Lisa's replies
+
+**Incoming call modal options (Accept / Transfer to AI / Reject):**
+- **Accept** — join the call normally
+- **Transfer to AI** — hand call to Lisa immediately without answering; agent's ringing call is rejected
+- **Reject** — reject the call
+
 ---
 
 ## External Service Connections
@@ -106,6 +116,8 @@ Agile, Scrum, ITIL, DevOps, Six Sigma, PMP, PRINCE2, CISSP, etc.
 | `POST /api/supervisor/listen` | Supervisor action |
 | `POST /api/supervisor/whisper` | Supervisor action |
 | `POST /api/supervisor/barge` | Supervisor action |
+| `POST /api/supervisor/takeover` | Supervisor: take over AI call |
+| `POST /voice/transfer-to-ai` | Agent: transfer active/incoming call to Lisa |
 
 ---
 

@@ -56,6 +56,19 @@ This is the **core calling engine** of the entire platform. It:
 | ALL | `/voice/join-conference` | Twilio | Customer/supervisor join TwiML |
 | GET | `/hold-music` | Twilio | Hold music stream |
 | ALL | `/voice/voicemail` | Twilio | Voicemail TwiML |
+| ALL | `/voice/supervisor` | Twilio | Supervisor joins conference (muted) |
+| GET | `/voice/silence` | Twilio | Silent waitUrl — suppresses hold music |
+
+### AI Voice Agent (Lisa)
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| POST | `/voice/transfer-to-ai` | JWT | Agent transfers live call to Lisa |
+| ALL | `/voice/ai-answer` | Twilio | Greet customer, start AI loop |
+| ALL | `/voice/ai-gather` | Twilio | Gather customer speech |
+| ALL | `/voice/ai-respond` | Twilio | Claude reply → Say → loop |
+| ALL | `/voice/ai-listen/:callSid` | Twilio | Agent joins ai_ conference as muted listener |
+| ALL | `/voice/ai-supervisor-listen` | Twilio | Supervisor joins ai_ conference (no hold music) |
+| GET | `/voice/ai-tts` | Twilio | TTS helper for conference announceUrl |
 
 ### Webhooks (Twilio → this service)
 | Method | Path | Purpose |
@@ -87,11 +100,12 @@ This is the **core calling engine** of the entire platform. It:
 ### Supervisor Controls
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| GET | `/api/supervisor/active-calls` | Admin | Live conferences list |
+| GET | `/api/supervisor/active-calls` | Admin | Live conferences list (includes AI calls) |
 | GET | `/api/supervisor/stats` | Admin | Team performance |
-| POST | `/api/supervisor/listen` | Admin | Join muted |
+| POST | `/api/supervisor/listen` | Admin | Join muted (uses silence URL for AI calls) |
 | POST | `/api/supervisor/whisper` | Admin | Coach agent only |
 | POST | `/api/supervisor/barge` | Admin | Join unmuted (all hear) |
+| POST | `/api/supervisor/takeover` | Admin | End AI session, join call directly |
 
 ### Wallet / Billing
 | Method | Path | Purpose |
@@ -127,6 +141,29 @@ This is the **core calling engine** of the entire platform. It:
 |----------|-----------|
 | Users | `/users` |
 | Phone Numbers | `/phone-numbers` |
+
+---
+
+## AI Voice Agent — Lisa
+
+Lisa is an inbound AI sales assistant that handles calls when no agent is available, or when an agent manually transfers.
+
+**Voice:** `Google.en-US-Chirp3-HD-Kore`  
+**Model:** `claude-sonnet-4-6` (180 max tokens per reply, 12s timeout)  
+**Lead extraction:** `claude-haiku-4-5` (after call ends)
+
+**How it's triggered:**
+1. Agent no-answer → `handleStatus` webhook redirects customer to `/voice/ai-answer`
+2. Agent clicks "AI" button in Dialer during an active call
+3. Agent clicks "Transfer to AI" in the incoming call modal
+
+**Post-call:** Transcript saved → Haiku extracts lead info → lead created in DB → follow-up `crm_tasks` created (round-robin assigned, due in 24h)
+
+**Listening:** Agent/supervisor can listen to Lisa's replies via the `ai_{callSid}` conference. Supervisor dashboard shows "Listen" + "Take Over" buttons for AI calls.
+
+**Key constraint:** Customer's voice is NOT audible to listeners (Gather/Say architecture). Full two-way monitoring requires Twilio Media Streams (not yet implemented).
+
+See [[Claude AI Features]] for full details.
 
 ---
 

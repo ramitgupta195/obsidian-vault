@@ -67,6 +67,50 @@ sequenceDiagram
 
 ---
 
+## AI Call Flow — Auto (No-Answer) & Manual Transfer
+
+```mermaid
+sequenceDiagram
+    participant AG as Agent Browser
+    participant BE as twilio-voice-service
+    participant TW as Twilio
+    participant CU as Customer Phone
+    participant AI as Claude (Lisa)
+
+    Note over CU,AI: Trigger A — Agent no-answer
+    TW->>BE: POST /webhooks/voice/status (no-answer)
+    BE->>BE: Look up customerCallSid from conferences table
+    BE->>TW: REST: calls(customerCallSid).update({ url: /voice/ai-answer })
+
+    Note over CU,AI: Trigger B — Agent manual transfer
+    AG->>BE: POST /voice/transfer-to-ai { callSid }
+    BE->>TW: REST: redirect customer → /voice/ai-answer
+    BE->>TW: REST: redirect agent → /voice/ai-listen/{customerCallSid}
+
+    TW->>BE: POST /voice/ai-answer
+    BE-->>TW: TwiML: Say greeting + Redirect → /voice/ai-gather
+
+    loop Conversation
+        TW->>BE: POST /voice/ai-gather
+        BE-->>TW: TwiML: Gather(speech) → /voice/ai-respond
+        CU->>TW: Customer speaks
+        TW->>BE: POST /voice/ai-respond { SpeechResult }
+        BE->>AI: getAiReply(callSid, speech)
+        AI-->>BE: Lisa's reply
+        BE-->>TW: TwiML: Say(reply) + Redirect → /voice/ai-gather
+        BE->>TW: conferences.update({ announceUrl }) — agent/supervisor hears reply
+    end
+
+    Note over CU,AI: Lisa says "Have a great day, goodbye!"
+    BE-->>TW: TwiML: Say(goodbye) + Hangup
+    BE->>BE: endSession(callSid)
+    BE->>BE: Save transcript to call_logs
+    BE->>BE: extractLeadInfo() via Haiku
+    BE->>BE: Create lead + crm_tasks (round-robin assigned)
+```
+
+---
+
 ## Inbound Call — Full Flow
 
 ```mermaid
@@ -90,13 +134,16 @@ sequenceDiagram
         TW-->>AG: Agent in conference
         TW-->>CU: Customer in conference
         Note over AG,CU: Call is live — same flow as outbound
+    else Agent clicks "Transfer to AI"
+        AG->>FE: Transfer to AI button (in incoming modal)
+        FE->>BE: POST /voice/transfer-to-ai { callSid }
+        BE->>TW: REST: redirect customer → /voice/ai-answer
+        FE->>TW: call.reject() — agent's ringing call dismissed
+        Note over CU,BE: Lisa handles the call
     else Agent does not answer
-        TW->>BE: POST /webhooks/voice/agent-no-answer
-        BE-->>TW: TwiML: redirect to voicemail
-        TW->>BE: POST /voice/voicemail (TwiML)
-        BE-->>TW: TwiML: record voicemail
-        TW->>BE: POST /webhooks/voice/voicemail-complete
-        BE->>BE: Save voicemail recording URL
+        TW->>BE: POST /webhooks/voice/status (no-answer)
+        BE->>TW: REST: redirect customer → /voice/ai-answer
+        Note over CU,BE: Lisa handles the call automatically
     end
 ```
 
@@ -137,8 +184,9 @@ sequenceDiagram
 
 ## Conference Participant Map
 
+**Regular call:**
 ```
-Twilio Conference: conf_{callSid}
+Twilio Conference: room-{callSid}
 ├── Leg 1: Agent (browser via Twilio JS SDK)
 │   └── Can be: on hold (muted from conference)
 ├── Leg 2: Customer (PSTN phone)
@@ -147,6 +195,17 @@ Twilio Conference: conf_{callSid}
     ├── Listen mode: muted — hears everyone
     ├── Whisper mode: unmuted to agent only
     └── Barge mode: unmuted to everyone
+```
+
+**AI-handled call:**
+```
+Customer's call leg: Gather/Say loop with Lisa (NOT in a conference)
+
+Twilio Conference: ai_{customerCallSid}  ← listener-only conference
+├── Leg 1: Agent (optional, if manually transferred — muted listener)
+└── Leg 2: Supervisor (optional, if clicked Listen — muted listener)
+    └── Hears: Lisa's TTS replies (announced via announceUrl)
+    └── Does NOT hear: customer's voice (Media Streams needed for that)
 ```
 
 ---

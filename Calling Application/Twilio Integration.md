@@ -151,11 +151,27 @@ flowchart TD
     C --> D{Agent found?}
     D -->|"Yes"| E["Return TwiML: dial agent conference"]
     D -->|"No"| F["Return TwiML: sorry, try again"]
-    E --> G{Agent answers?}
-    G -->|"Yes"| H["Call connected — both in conference"]
-    G -->|"No answer timeout"| I["/webhooks/voice/agent-no-answer"]
-    I --> J["Return TwiML: redirect to voicemail"]
+    E --> G{Agent response}
+    G -->|"Answers"| H["Call connected — both in conference"]
+    G -->|"Clicks Transfer to AI"| I["POST /voice/transfer-to-ai\nRedirect customer → Lisa"]
+    G -->|"No answer timeout"| J["handleStatus webhook\nRedirect customer → /voice/ai-answer"]
+    I --> K["Lisa handles call\nLead + task created on end"]
+    J --> K
 ```
+
+---
+
+## AI Call Routing (Lisa)
+
+When a call is routed to Lisa, Twilio uses the existing call leg — no new call is created:
+
+```
+calls(customerCallSid).update({ url: BASE_URL + '/voice/ai-answer' })
+```
+
+This redirects the customer's in-progress call to a new TwiML document. The AI flow then runs as a Gather → Respond loop on that same call leg.
+
+**Conference for monitoring:** A conference row `ai_{customerCallSid}` is created in the DB and as a real Twilio conference. Agents/supervisors can join it muted to hear Lisa's replies via `announceUrl`.
 
 ---
 
